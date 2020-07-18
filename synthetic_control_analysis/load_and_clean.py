@@ -17,8 +17,8 @@ _JHU_local_path = "../data/covid/JHU/"
 _google_web_path = "https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv"
 _google_local_path = "../data/mobility/Global_Mobility_Report.csv"
 
-_apple_web_path = "https://covid19-static.cdn-apple.com/covid19-mobility-data/2010HotfixDev18/v3/en-us/applemobilitytrends-2020-06-14.csv"
-_apple_local_path = "../data/mobility/applemobilitytrends.csv"
+_apple_web_path = "https://covid19-static.cdn-apple.com/covid19-mobility-data/2012HotfixDev16/v3/en-us/applemobilitytrends-2020-07-16.csv"
+_apple_local_path = "../data/mobility/applemobilitytrends-2020-07-16.csv"
 
 _IHME_web_path = None #TODO unimplemented, line 177
 _IHME_local_path = "../data/intervention/sdc_sources.csv"
@@ -128,8 +128,8 @@ def _import_JHU_global():
     return cases_after_Jan22, deaths_after_Jan22
 
 def _import_JHU_US():
-    deaths = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_us.csv")
-    cases = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_us.csv")
+    deaths = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+    cases = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
 
     deaths = deaths.set_index('Combined_Key')
     deaths_after_Jan22 = deaths.loc[:, '1/22/20':].T
@@ -271,7 +271,7 @@ def _update_NYTimes():
 
 # update JHU data
 def _update_JHU():
-    os.system("git -C %s reset --hard" % _NYTimes_local_path)
+    os.system("git -C %s reset --hard" % _JHU_local_path)
     if os.system("git -C %s pull" % _JHU_local_path) != 0:
         if os.system("git clone %s %s" % (_JHU_web_path, _JHU_local_path)) != 0:
             print("Unable to update JHU data", file=sys.stderr)
@@ -289,11 +289,11 @@ def _update_google():
 
 # update Apple data
 def _update_apple():
-    apple_hidden_path = "../data/mobility/.applemobilitytrends.csv";
-    if os.system("curl -o %s -z %s %s" % (apple_hidden_path, apple_hidden_path, _apple_web_path)) != 0:
-        print("Unable to update Apple mobility data", file=sys.stderr)
-        return 1
-    os.system("cp %s %s" % (apple_hidden_path, _apple_local_path))
+#    apple_hidden_path = "../data/mobility/.applemobilitytrends.csv";
+#    if os.system("curl -o %s -z %s %s" % (apple_hidden_path, apple_hidden_path, _apple_web_path)) != 0:
+#        print("Unable to update Apple mobility data", file=sys.stderr)
+#        return 1
+#    os.system("cp %s %s" % (apple_hidden_path, _apple_local_path))
     return 0
 
 # update IHME data
