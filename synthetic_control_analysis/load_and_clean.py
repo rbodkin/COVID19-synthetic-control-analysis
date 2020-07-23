@@ -29,6 +29,7 @@ _county_pop_local_path = "../data/population/co-est2019-annres.xlsx"
 _state_reopen_local_path = "../data/intervention/state_reopen_data.csv"
 _temperature_local_path = "../data/temperature/temp_data.csv"
 
+lemma_local_path = "../data/covid/lemma7-22.csv"
 
 northeast = ["Connecticut","Maine","Massachusetts","New Hampshire",
              "Rhode Island","Vermont","New Jersey","New York",
