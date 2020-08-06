@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-
+import datetime
 
 
 
@@ -17,8 +17,8 @@ _JHU_local_path = "../data/covid/JHU/"
 _google_web_path = "https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv"
 _google_local_path = "../data/mobility/Global_Mobility_Report.csv"
 
-_apple_web_path = "https://covid19-static.cdn-apple.com/covid19-mobility-data/2012HotfixDev16/v3/en-us/applemobilitytrends-2020-07-16.csv"
-_apple_local_path = "../data/mobility/applemobilitytrends-2020-07-16.csv"
+_apple_web_path = "https://covid19-static.cdn-apple.com/covid19-mobility-data/2013HotfixDev7/v3/en-us/applemobilitytrends-%s.csv"
+_apple_local_path = "../data/mobility/applemobilitytrends.csv"
 
 _IHME_web_path = None #TODO unimplemented, line 177
 _IHME_local_path = "../data/intervention/sdc_sources.csv"
@@ -29,11 +29,13 @@ _county_pop_local_path = "../data/population/co-est2019-annres.xlsx"
 _state_reopen_local_path = "../data/intervention/state_reopen_data.csv"
 _temperature_local_path = "../data/temperature/temp_data.csv"
 
-lemma_local_path = "../data/covid/lemma7-22.csv"
+_CTP_US_web_path = "https://covidtracking.com/api/v1/us/daily.csv"
+_CTP_US_local_path = "../data/covid/CTP/country.csv"
+
+_CTP_state_web_path = "https://covidtracking.com/api/v1/states/daily.csv"
+_CTP_state_local_path = "../data/covid/CTP/state.csv"
 
 
-def _import_lemma():
-    return pd.read_csv(lemma_local_path)[1:]
 
 # load and clean NYTimes data
 def _import_NYTimes_US():
@@ -42,7 +44,6 @@ def _import_NYTimes_US():
 
 def _import_NYTimes_states():
     states = pd.read_csv(_NYTimes_local_path + "us-states.csv")[1:]
-
 
     cases = states.pivot(index='date', columns='state', values='cases')
     deaths = states.pivot(index='date', columns='state', values='deaths')
@@ -103,8 +104,8 @@ def _import_JHU_global():
     return cases_after_Jan22, deaths_after_Jan22
 
 def _import_JHU_US():
-    deaths = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
-    cases = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+    deaths = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_us.csv")
+    cases = pd.read_csv(_JHU_local_path + "csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_us.csv")
 
     deaths = deaths.set_index('Combined_Key')
     deaths_after_Jan22 = deaths.loc[:, '1/22/20':].T
@@ -229,6 +230,24 @@ def _import_temperature_data():
     fips = temp_data[['fips', 'county_state']]
     return out, fips
 
+def _import_CTP_US():
+    raw = pd.read_csv(_CTP_US_local_path)
+    raw = raw.set_index('date')
+    raw.index = pd.to_datetime(raw.index, format='%Y%m%d').strftime('%Y-%m-%d')
+    raw = raw.iloc[-1::-1]
+    # remove deprecated and redundant columns
+    stripped = raw.drop(labels=['dateChecked', 'deathIncrease', 'hash', 'hospitalized', 'hospitalizedIncrease', 'lastModified', 'negativeIncrease', 'posNeg', 'positiveIncrease', 'total', 'totalTestResultsIncrease'], axis=1)
+    return stripped
+
+def _import_CTP_state():
+    raw = pd.read_csv(_CTP_state_local_path)
+    raw = raw.set_index('date')
+    raw.index = pd.to_datetime(raw.index, format='%Y%m%d').strftime('%Y-%m-%d')
+    raw = raw.iloc[-1::-1]
+    # remove deprecated and redundant columns
+    stripped = raw.drop(labels=['state', 'checkTimeEt', 'commercialScore', 'dataQualityGrade', 'dateChecked', 'dateModified', 'deathIncrease', 'grade', 'hash', 'hospitalized', 'hospitalizedIncrease', 'lastUpdateEt', 'negativeIncrease', 'negativeRegularScore', 'negativeScore', 'posNeg', 'positiveIncrease', 'positiveScore', 'score', 'total', 'totalTestResultsIncrease'], axis=1)
+    return tuple(stripped.pivot(columns='fips', values=stat) for stat in stripped.columns if stat != 'fips')
+
 
 
 
@@ -246,7 +265,7 @@ def _update_NYTimes():
 
 # update JHU data
 def _update_JHU():
-    os.system("git -C %s reset --hard" % _JHU_local_path)
+    os.system("git -C %s reset --hard" % _NYTimes_local_path)
     if os.system("git -C %s pull" % _JHU_local_path) != 0:
         if os.system("git clone %s %s" % (_JHU_web_path, _JHU_local_path)) != 0:
             print("Unable to update JHU data", file=sys.stderr)
@@ -264,16 +283,38 @@ def _update_google():
 
 # update Apple data
 def _update_apple():
-#    apple_hidden_path = "../data/mobility/.applemobilitytrends.csv";
-#    if os.system("curl -o %s -z %s %s" % (apple_hidden_path, apple_hidden_path, _apple_web_path)) != 0:
-#        print("Unable to update Apple mobility data", file=sys.stderr)
-#        return 1
-#    os.system("cp %s %s" % (apple_hidden_path, _apple_local_path))
-    return 0
+    apple_hidden_path = "../data/mobility/.applemobilitytrends.csv";
+    for day in range(7):
+        attempt_date = (datetime.date.today() - datetime.timedelta(days=day)).strftime('%Y-%m-%d')
+        if os.system("curl -f -o %s %s" % (apple_hidden_path, _apple_web_path % attempt_date)) == 0:
+            os.system("cp %s %s" % (apple_hidden_path, _apple_local_path))
+            return 0
+    print("Unable to update Apple mobility data", file=sys.stderr)
+    return 1
 
 # update IHME data
 def _update_IHME():
     return 0 #TODO unimplemented
+
+# update COVID Tracking Project data
+def _update_CTP():
+    out = 0
+    
+    US_hidden_path = "../data/covid/CTP/.country.csv"
+    if os.system("curl -o %s -z %s %s" % (US_hidden_path, US_hidden_path, _CTP_US_web_path)) != 0:
+        print("Unable to update CTP US data")
+        out += 1
+    else:
+        os.system("cp %s %s" % (US_hidden_path, _CTP_US_local_path))
+    
+    state_hidden_path = "../data/covid/CTP/.state.csv"
+    if os.system("curl -o %s -z %s %s" % (state_hidden_path, state_hidden_path, _CTP_state_web_path)) != 0:
+        print("Unable to update CTP state data")
+        out += 1
+    else:
+        os.system("cp %s %s" % (state_hidden_path, _CTP_state_local_path))
+    
+    return out
 
 
 
@@ -294,11 +335,12 @@ def load_clean(dataset):
                         'JHU global' : _import_JHU_global,
                         'JHU US' : _import_JHU_US,
                         'mobility' : _import_mobility,
-                        'lemma': _import_lemma,
                         'IHME intervention' : _import_IHME_intervention,  
                         'population': _import_population_data,
                         'state reopen': _import_state_reopen_data,
-                        'temperature': _import_temperature_data  
+                        'temperature': _import_temperature_data,
+                        'CTP US' : _import_CTP_US,
+                        'CTP states' : _import_CTP_state
     }
 
     return _import_function_dictionary[dataset]()
@@ -311,7 +353,8 @@ def update_data(dataset=None):
                                 'JHU' : _update_JHU,
                                 'Google' : _update_google,
                                 'Apple' : _update_apple,
-                                'IHME' : _update_IHME
+                                'IHME' : _update_IHME,
+                                'CTP' : _update_CTP
     }
 
     if dataset:
