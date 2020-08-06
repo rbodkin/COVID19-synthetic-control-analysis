@@ -31,35 +31,9 @@ _temperature_local_path = "../data/temperature/temp_data.csv"
 
 lemma_local_path = "../data/covid/lemma7-22.csv"
 
-northeast = ["Connecticut","Maine","Massachusetts","New Hampshire",
-             "Rhode Island","Vermont","New Jersey","New York",
-             "Pennsylvania", "Delaware","District of Columbia","Maryland"]
-midwest = ["Indiana","Illinois","Michigan","Ohio","Wisconsin",
-             "Iowa","Kansas","Minnesota","Missouri","Nebraska",
-             "North Dakota","South Dakota"]
-south = ["Florida","Georgia",
-            "North Carolina","South Carolina","Virginia",
-            "West Virginia","Alabama","Kentucky","Mississippi",
-            "Tennessee","Arkansas","Louisiana","Oklahoma","Texas"]
 
-west= ["Arizona","Colorado","Idaho","New Mexico","Montana",
-            "Utah","Nevada","Wyoming","Alaska","California",
-            "Hawaii","Oregon","Washington"]
-
-masks_mandated = ['New York', 'Maine', 'Maryland', 'Virginia', 'New Mexico', 'California', 'Michigan', 'Illinois', 'Massachusetts','Delaware', 'Rhode Island']
-
-masks_recommended = ['Montana', 'Idaho', 'Utah', 'Arizona', 'North Dakota', 'South Dakota', 'Kansas', 'Oklahoma', 
-                     'Texas', 'North Carolina', 'South Carolina', 'West Virginia', 'Wisconsin','Iowa', 'Missouri', 'Alaska']
-
-eu_countries = ['Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czechia', 'Denmark',
-   'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Ireland',
-   'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands',
-   'Poland', 'Portugal', 'Romania', 'Slovenia', 'Spain', 'Sweden']
-
-regions = {'Northeast': northeast, 
-           'Midwest':midwest, 
-           'South':south, 
-           'West': west}
+def _import_lemma():
+    return pd.read_csv(lemma_local_path)[1:]
 
 # load and clean NYTimes data
 def _import_NYTimes_US():
@@ -73,9 +47,9 @@ def _import_NYTimes_states():
     cases = states.pivot(index='date', columns='state', values='cases')
     deaths = states.pivot(index='date', columns='state', values='deaths')
 
-    for region in regions:
-        cases[region] = cases[regions[region]].sum(axis = 1)
-        deaths[region] = deaths[regions[region]].sum(axis = 1)
+    # for region in regions:
+    #     cases[region] = cases[regions[region]].sum(axis = 1)
+    #     deaths[region] = deaths[regions[region]].sum(axis = 1)
     cases = cases.fillna(0)
     deaths = deaths.fillna(0)
 
@@ -184,21 +158,21 @@ def _import_IHME_intervention():
 
         row['last date'] = np.max(dates_of_intervention)
 
-    i = len(sd_data.index)
+    # i = len(sd_data.index)
 
-    for region in regions:
-        info = [np.nan for i in range(len(sd_data.loc[0]))]
-        info[0] = region
-        info[1] = 'USA'
+    # for region in regions:
+    #     info = [np.nan for i in range(len(sd_data.loc[0]))]
+    #     info[0] = region
+    #     info[1] = 'USA'
         
-        dates = []
-        for state in regions[region]:
-            dates.append(sd_data[sd_data['name'] == state]['last date'].values[0])
-        info[-1] = np.max(dates)
+    #     dates = []
+    #     for state in regions[region]:
+    #         dates.append(sd_data[sd_data['name'] == state]['last date'].values[0])
+    #     info[-1] = np.max(dates)
 
-        sd_data.loc[i] = info
+    #     sd_data.loc[i] = info
 
-        i += 1
+    #     i += 1
 
 
     return sd_data
@@ -238,8 +212,8 @@ def _import_population_data():
 
     all_population = pd.concat([country_population, us_state_population, county_population], axis=0, ignore_index=False)
 
-    for region in regions:
-        all_population.loc[region] = all_population.loc[regions[region]].sum()
+    # for region in regions:
+    #     all_population.loc[region] = all_population.loc[regions[region]].sum()
 
     
     return all_population, country_population, us_state_population, county_population
@@ -250,9 +224,9 @@ def _import_state_reopen_data():
 def _import_temperature_data():
     _temperature_local_path = "../data/temperature/temp_data.csv"
     temp_data = pd.read_csv(_temperature_local_path)
-    temp_data['county_state'] = temp_data['County'] +'-' + temp_data['State']
+    temp_data['county_state'] = temp_data['county'] +'-' + temp_data['state']
     out = temp_data.pivot_table(index = "date", columns = "county_state", values = 'avg_temperature').loc['2020-01-22':]
-    fips = temp_data[['county_fips_code', 'county_state']]
+    fips = temp_data[['fips', 'county_state']]
     return out, fips
 
 
@@ -320,6 +294,7 @@ def load_clean(dataset):
                         'JHU global' : _import_JHU_global,
                         'JHU US' : _import_JHU_US,
                         'mobility' : _import_mobility,
+                        'lemma': _import_lemma,
                         'IHME intervention' : _import_IHME_intervention,  
                         'population': _import_population_data,
                         'state reopen': _import_state_reopen_data,
